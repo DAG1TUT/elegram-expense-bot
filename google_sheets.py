@@ -1,14 +1,21 @@
 import json
 import os
+import sys
 from typing import Optional
 
 import gspread
 from google.oauth2.service_account import Credentials
 
 
-_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+def _log(msg: str) -> None:
+    print(msg, flush=True)
+    sys.stderr.write(msg + "\n")
+    sys.stderr.flush()
 
+
+_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 _cached_sheet = None
+_log("[GSHEETS] module loaded")
 
 
 def _get_sheet() -> Optional[gspread.Worksheet]:
@@ -23,10 +30,10 @@ def _get_sheet() -> Optional[gspread.Worksheet]:
     creds_json = os.environ.get("GOOGLE_SHEETS_CREDS_JSON")
     spreadsheet_id = os.environ.get("GOOGLE_SHEETS_SPREADSHEET_ID")
     if not creds_json:
-        print("[GSHEETS] disabled: GOOGLE_SHEETS_CREDS_JSON is empty")
+        _log("[GSHEETS] disabled: GOOGLE_SHEETS_CREDS_JSON is empty")
         return None
     if not spreadsheet_id:
-        print("[GSHEETS] disabled: GOOGLE_SHEETS_SPREADSHEET_ID is empty")
+        _log("[GSHEETS] disabled: GOOGLE_SHEETS_SPREADSHEET_ID is empty")
         return None
     try:
         info = json.loads(creds_json)
@@ -34,11 +41,10 @@ def _get_sheet() -> Optional[gspread.Worksheet]:
         client = gspread.authorize(credentials)
         sh = client.open_by_key(spreadsheet_id)
         _cached_sheet = sh.sheet1
-        print("[GSHEETS] init ok")
+        _log("[GSHEETS] init ok")
         return _cached_sheet
     except Exception as e:
-        # Логируем, но не падаем, чтобы бот продолжал работать.
-        print(f"[GSHEETS] init error: {e}")
+        _log(f"[GSHEETS] init error: {e}")
         return None
 
 
@@ -53,17 +59,17 @@ def append_expense_to_sheet(
 
     Формат строки: дата/время, user_id, сумма, описание, категория.
     """
-    print("[GSHEETS] append_expense_to_sheet called")
+    _log("[GSHEETS] append_expense_to_sheet called")
     sheet = _get_sheet()
     if sheet is None:
-        print("[GSHEETS] skip: sheet not available (check Variables or init logs above)")
+        _log("[GSHEETS] skip: sheet not available (check Variables or init logs above)")
         return
     try:
         sheet.append_row(
             [created_at, str(user_id), float(amount), description, category],
             value_input_option="USER_ENTERED",
         )
-        print("[GSHEETS] row appended ok")
+        _log("[GSHEETS] row appended ok")
     except Exception as e:
-        print(f"[GSHEETS] append error: {e}")
+        _log(f"[GSHEETS] append error: {e}")
 
