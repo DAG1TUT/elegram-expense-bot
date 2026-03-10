@@ -30,14 +30,17 @@ def init_db():
     conn.close()
 
 
-def add_expense(user_id: int, amount: float, description: str, category: str):
+def add_expense(user_id: int, amount: float, description: str, category: str, created_at: str | None = None):
     conn = get_connection()
+    if created_at is None:
+        created_at = datetime.now().isoformat()
     conn.execute(
         "INSERT INTO expenses (user_id, amount, description, category, created_at) VALUES (?, ?, ?, ?, ?)",
-        (user_id, amount, description, category, datetime.now().isoformat()),
+        (user_id, amount, description, category, created_at),
     )
     conn.commit()
     conn.close()
+    return created_at
 
 
 def get_expenses(user_id: int, limit: int = 50):

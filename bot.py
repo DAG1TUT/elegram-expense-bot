@@ -7,6 +7,7 @@ Telegram-бот для учёта расходов с автоматическо
 import re
 import os
 import tempfile
+from datetime import datetime
 from typing import Optional, Tuple
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
@@ -14,6 +15,7 @@ from telegram.request import HTTPXRequest
 
 import database as db
 from categories import detect_category, get_all_categories
+from google_sheets import append_expense_to_sheet
 
 # Голосовые сообщения (опционально)
 try:
@@ -550,7 +552,8 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     category = detect_category(description)
-    db.add_expense(user_id, amount, description, category)
+    created_at = db.add_expense(user_id, amount, description, category, datetime.now().isoformat())
+    append_expense_to_sheet(user_id, amount, description, category, created_at)
     await update.message.reply_text(
         f"Записал по голосу: {amount:,.0f} ₽ — {description}\nКатегория: {category}"
     )
@@ -579,7 +582,8 @@ async def handle_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     category = detect_category(description)
-    db.add_expense(user_id, amount, description, category)
+    created_at = db.add_expense(user_id, amount, description, category, datetime.now().isoformat())
+    append_expense_to_sheet(user_id, amount, description, category, created_at)
     await update.message.reply_text(
         f"Записал: {amount:,.0f} ₽ — {description}\nКатегория: {category}"
     )
@@ -591,6 +595,15 @@ def main():
         print("Задайте переменную окружения TELEGRAM_BOT_TOKEN.")
         return
     db.init_db()
+    # Проверка Google Sheets при старте
+    try:
+        from google_sheets import _get_sheet
+        if _get_sheet() is not None:
+            print("Google Sheets: подключено, траты записываются в таблицу.", flush=True)
+        else:
+            print("Google Sheets: не настроено. Задайте GOOGLE_SHEETS_CREDS_JSON и GOOGLE_SHEETS_SPREADSHEET_ID в Variables.", flush=True)
+    except Exception as e:
+        print(f"Google Sheets: ошибка — {e}", flush=True)
     # Не использовать системный прокси (избегаем 403 при корпоративном/системном прокси)
     request = HTTPXRequest(proxy=None, httpx_kwargs={"trust_env": False})
     app = Application.builder().token(token).request(request).build()

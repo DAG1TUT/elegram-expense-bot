@@ -41,6 +41,14 @@ def _get_sheet() -> Optional[gspread.Worksheet]:
         client = gspread.authorize(credentials)
         sh = client.open_by_key(spreadsheet_id)
         _cached_sheet = sh.sheet1
+        # Заголовки в первой строке, если лист пустой
+        try:
+            first = _cached_sheet.row_values(1)
+            if not first or all(c == "" for c in first):
+                _cached_sheet.update("A1:E1", [["created_at", "user_id", "amount", "description", "category"]])
+                _log("[GSHEETS] headers written")
+        except Exception:
+            pass
         _log("[GSHEETS] init ok")
         return _cached_sheet
     except Exception as e:
