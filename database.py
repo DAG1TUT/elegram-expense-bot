@@ -43,11 +43,48 @@ def add_expense(user_id: int, amount: float, description: str, category: str):
 def get_expenses(user_id: int, limit: int = 50):
     conn = get_connection()
     rows = conn.execute(
-        "SELECT amount, description, category, created_at FROM expenses WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
+        "SELECT id, amount, description, category, created_at FROM expenses WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
         (user_id, limit),
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def get_expense_by_id(user_id: int, expense_id: int):
+    """Одна трата по id (только своего пользователя)."""
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT id, amount, description, category, created_at FROM expenses WHERE user_id = ? AND id = ?",
+        (user_id, expense_id),
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def delete_expense(user_id: int, expense_id: int) -> bool:
+    """Удаляет трату. Возвращает True, если запись была и удалена."""
+    conn = get_connection()
+    cur = conn.execute(
+        "DELETE FROM expenses WHERE user_id = ? AND id = ?",
+        (user_id, expense_id),
+    )
+    conn.commit()
+    deleted = cur.rowcount > 0
+    conn.close()
+    return deleted
+
+
+def update_expense_category(user_id: int, expense_id: int, category: str) -> bool:
+    """Меняет категорию траты. Возвращает True, если запись обновлена."""
+    conn = get_connection()
+    cur = conn.execute(
+        "UPDATE expenses SET category = ? WHERE user_id = ? AND id = ?",
+        (category, user_id, expense_id),
+    )
+    conn.commit()
+    updated = cur.rowcount > 0
+    conn.close()
+    return updated
 
 
 def get_summary_by_category(user_id: int, period_days: int = 30):

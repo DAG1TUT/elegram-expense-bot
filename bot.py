@@ -163,6 +163,25 @@ def _reply_keyboard():
     )
 
 
+def _expenses_list_message(user_id: int, limit: int = 10):
+    """Текст и клавиатура для «Последние траты» с кнопками Удалить / Изменить категорию."""
+    rows = db.get_expenses(user_id, limit=limit)
+    if not rows:
+        return "Пока нет записей о расходах.", None
+    lines = ["Последние траты (нажми ✏️ или 🗑):\n"]
+    buttons = []
+    for r in rows:
+        date = r["created_at"][:10] if r.get("created_at") else ""
+        lines.append(f"• {r['amount']:,.0f} ₽ — {r['description']} [{r['category']}] {date}")
+        eid = r["id"]
+        buttons.append([
+            InlineKeyboardButton("✏️", callback_data=f"edit_{eid}"),
+            InlineKeyboardButton("🗑", callback_data=f"del_{eid}"),
+        ])
+    buttons.append([InlineKeyboardButton("← Меню", callback_data="btn_menu")])
+    return "\n".join(lines), InlineKeyboardMarkup(buttons)
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Клавиатура внизу экрана — кнопки всегда видны
     await update.message.reply_text(
@@ -213,15 +232,11 @@ async def cmd_total(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    rows = db.get_expenses(user_id, limit=15)
-    if not rows:
-        await update.message.reply_text("Пока нет записей о расходах.")
-        return
-    lines = ["Последние траты:\n"]
-    for r in rows:
-        date = r["created_at"][:10] if r["created_at"] else ""
-        lines.append(f"• {r['amount']:,.0f} ₽ — {r['description']} [{r['category']}] {date}")
-    await update.message.reply_text("\n".join(lines))
+    text, kb = _expenses_list_message(user_id, limit=10)
+    if kb:
+        await update.message.reply_text(text, reply_markup=kb)
+    else:
+        await update.message.reply_text(text)
 
 
 async def cmd_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -275,16 +290,9 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(text=text, reply_markup=kb)
 
     elif data == "btn_list":
-        rows = db.get_expenses(user_id, limit=15)
-        if not rows:
-            text = "Пока нет записей о расходах."
-        else:
-            lines = ["Последние траты:\n"]
-            for r in rows:
-                date = r["created_at"][:10] if r["created_at"] else ""
-                lines.append(f"• {r['amount']:,.0f} ₽ — {r['description']} [{r['category']}] {date}")
-            text = "\n".join(lines)
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("← Меню", callback_data="btn_menu")]])
+        text, kb = _expenses_list_message(user_id, limit=10)
+        if not kb:
+            kb = InlineKeyboardMarkup([[InlineKeyboardButton("← Меню", callback_data="btn_menu")]])
         await query.edit_message_text(text=text, reply_markup=kb)
 
     elif data == "btn_cats":
@@ -346,6 +354,82 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
         await query.edit_message_text(text=text, reply_markup=kb)
 
+    elif data.startswith("del_"):
+        try:
+            expense_id = int(data.replace("del_", ""))
+        except ValueError:
+            await query.answer("Ошибка")
+            return
+        if db.delete_expense(user_id, expense_id):
+            await query.answer("Трата удалена")
+            text, kb = _expenses_list_message(user_id, limit=10)
+            if not kb:
+                kb = InlineKeyboardMarkup([[InlineKeyboardButton("← Меню", callback_data="btn_menu")]])
+            await query.edit_message_text(text=text, reply_markup=kb)
+        else:
+            await query.answer("Трата не найдена")
+
+    elif data.startswith("edit_"):
+        try:
+            expense_id = int(data.replace("edit_", ""))
+        except ValueError:
+            await query.answer("Ошибка")
+            return
+        exp = db.get_expense_by_id(user_id, expense_id)
+        if not exp:
+            await query.answer("Трата не найдена")
+            return
+        await query.answer()
+        label = f"{exp['amount']:,.0f} ₽ — {exp['description']}"
+        all_cats = get_all_categories()
+        buttons = []
+        row = []
+        for i, cat in enumerate(all_cats):
+            row.append(InlineKeyboardButton(cat, callback_data=f"setcat_{expense_id}_{i}"))
+            if len(row) == 2:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+        buttons.append([InlineKeyboardButton("← К списку", callback_data="btn_list")])
+        await query.edit_message_text(
+            f"Выбери новую категорию для траты:\n{label}",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+
+    elif data.startswith("setcat_"):
+        parts = data.split("_")
+        if len(parts) != 3:
+            await query.answer("Ошибка")
+            return
+        try:
+            expense_id = int(parts[1])
+            cat_idx = int(parts[2])
+        except ValueError:
+            await query.answer("Ошибка")
+            return
+        all_cats = get_all_categories()
+        if cat_idx < 0 or cat_idx >= len(all_cats):
+            await query.answer("Категория не найдена")
+            return
+        new_cat = all_cats[cat_idx]
+        exp = db.get_expense_by_id(user_id, expense_id)
+        if not exp:
+            await query.answer("Трата не найдена")
+            return
+        if db.update_expense_category(user_id, expense_id, new_cat):
+            await query.answer(f"Категория изменена на {new_cat}")
+            label = f"{exp['amount']:,.0f} ₽ — {exp['description']}"
+            await query.edit_message_text(
+                f"✅ Категория изменена.\n{label}\n→ {new_cat}",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("← К списку трат", callback_data="btn_list")],
+                    [InlineKeyboardButton("← Меню", callback_data="btn_menu")],
+                ]),
+            )
+        else:
+            await query.answer("Не удалось изменить")
+
 
 async def _send_menu_response(update: Update, context: ContextTypes.DEFAULT_TYPE, button_data: str):
     """Ответ на нажатие кнопки меню (когда нажали Reply-клавиатуру)."""
@@ -355,15 +439,11 @@ async def _send_menu_response(update: Update, context: ContextTypes.DEFAULT_TYPE
         text = _format_total_and_by_category(user_id, period_days=30)
         await msg(text or "Пока нет трат за последние 30 дней.")
     elif button_data == "btn_list":
-        rows = db.get_expenses(user_id, limit=15)
-        if not rows:
-            await msg("Пока нет записей о расходах.")
+        text, kb = _expenses_list_message(user_id, limit=10)
+        if kb:
+            await msg(text, reply_markup=kb)
         else:
-            lines = ["Последние траты:\n"]
-            for r in rows:
-                date = r["created_at"][:10] if r["created_at"] else ""
-                lines.append(f"• {r['amount']:,.0f} ₽ — {r['description']} [{r['category']}] {date}")
-            await msg("\n".join(lines))
+            await msg(text)
     elif button_data == "btn_cats":
         all_cats = get_all_categories()
         summary = db.get_summary_by_category(user_id, period_days=30)
