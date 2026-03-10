@@ -53,14 +53,17 @@ def append_expense_to_sheet(
 
     Формат строки: дата/время, user_id, сумма, описание, категория.
     """
+    print("[GSHEETS] append_expense_to_sheet called")
     sheet = _get_sheet()
     if sheet is None:
+        print("[GSHEETS] skip: sheet not available (check Variables or init logs above)")
         return
     try:
         sheet.append_row(
             [created_at, str(user_id), float(amount), description, category],
             value_input_option="USER_ENTERED",
         )
+        print("[GSHEETS] row appended ok")
     except Exception as e:
         print(f"[GSHEETS] append error: {e}")
 
