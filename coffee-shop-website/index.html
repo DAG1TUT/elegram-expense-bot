@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>На Восходе — Кофейня</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="header">
+    <nav class="nav">
+      <a href="#" class="logo">
+        <img src="images/logo.png" alt="На Восходе" class="logo-img">
+      </a>
+      <button class="nav-toggle" aria-label="Меню">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <ul class="nav-list">
+        <li><a href="#about">О нас</a></li>
+        <li><a href="#menu">Меню</a></li>
+        <li><a href="#location">Где мы</a></li>
+        <li><a href="#contact">Контакты</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-bg"></div>
+      <div class="hero-content">
+        <p class="hero-tagline">С любовью к каждой чашке</p>
+        <h1 class="hero-title">Настоящий кофе в уютной атмосфере</h1>
+        <a href="#menu" class="btn btn-primary">Смотреть меню</a>
+      </div>
+      <div class="hero-scroll">
+        <span>Листайте вниз</span>
+        <div class="scroll-arrow"></div>
+      </div>
+    </section>
+
+    <section id="about" class="section about">
+      <div class="container">
+        <div class="about-grid">
+          <div class="about-image">
+            <img src="images/about-interior.jpg" alt="Интерьер кофейни На Восходе" class="about-image-frame">
+          </div>
+          <div class="about-text">
+            <h2 class="section-title">О нашей кофейне</h2>
+            <p class="lead">«На Восходе» — это место, где начинается утро. Здесь пахнет свежемолотым кофе, готовятся теплые завтраки и создается спокойная атмосфера для хорошего начала дня.</p>
+            <p>Мы готовим кофе из качественного зерна, внимательно относимся к каждой чашке и делаем всё, чтобы вкус был стабильным и насыщенным. В меню — классические кофейные напитки, авторские позиции и завтраки, которые идеально подходят для утреннего настроения.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="menu" class="section menu">
+      <div class="container">
+        <h2 class="section-title section-title--light">Меню</h2>
+        <div class="menu-tabs">
+          <button class="menu-tab active" data-tab="breakfast">Завтраки</button>
+          <button class="menu-tab" data-tab="fresh">Фреши и лимонады</button>
+          <button class="menu-tab" data-tab="coffee">Кофе</button>
+          <button class="menu-tab" data-tab="tea">Чай и напитки</button>
+        </div>
+        <div class="menu-content">
+          <div class="menu-panel active" id="breakfast">
+            <div class="menu-list">
+              <h3 class="menu-category">Блинчики со сметаной</h3>
+              <a href="#item-blinchiki-vishnya" class="menu-item menu-item-link" data-product-id="blinchiki-vishnya"><span class="name">вишня</span><span class="price">260 ₽</span></a>
+              <a href="#item-blinchiki-klubnika" class="menu-item menu-item-link" data-product-id="blinchiki-klubnika"><span class="name">клубника</span><span class="price">250 ₽</span></a>
+              <h3 class="menu-category">Каши</h3>
+              <a href="#item-kasha-ovsyanaya" class="menu-item menu-item-link" data-product-id="kasha-ovsyanaya"><span class="name">каша овсяная с вишней и розмарином</span><span class="price">270 ₽</span></a>
+              <h3 class="menu-category">Сырники</h3>
+              <a href="#item-syrniki-vishnya" class="menu-item menu-item-link" data-product-id="syrniki-vishnya"><span class="name">со сметаной и вишневым вареньем</span><span class="price">360 ₽</span></a>
+              <a href="#item-syrniki-klubnika" class="menu-item menu-item-link" data-product-id="syrniki-klubnika"><span class="name">со сметаной и клубничным вареньем</span><span class="price">360 ₽</span></a>
+              <h3 class="menu-category">Панини</h3>
+              <a href="#item-panini-buzhenina" class="menu-item menu-item-link" data-product-id="panini-buzhenina"><span class="name">бужениной</span><span class="price">380 ₽</span></a>
+              <a href="#item-panini-losos" class="menu-item menu-item-link" data-product-id="panini-losos"><span class="name">лососем</span><span class="price">580 ₽</span></a>
+              <a href="#item-panini-cyplenok" class="menu-item menu-item-link" data-product-id="panini-cyplenok"><span class="name">цыпленком</span><span class="price">380 ₽</span></a>
+              <h3 class="menu-category">Запеченные омлеты</h3>
+              <a href="#item-omlet-bekon" class="menu-item menu-item-link" data-product-id="omlet-bekon"><span class="name">крем-сыром и беконом</span><span class="price">330 ₽</span></a>
+              <a href="#item-omlet-cyplenok" class="menu-item menu-item-link" data-product-id="omlet-cyplenok"><span class="name">крем-сыром и цыпленком</span><span class="price">330 ₽</span></a>
+              <a href="#item-omlet-losos" class="menu-item menu-item-link" data-product-id="omlet-losos"><span class="name">крем-сыром и лососем</span><span class="price">330 ₽</span></a>
+              <h3 class="menu-category">Творожная запеканка</h3>
+              <a href="#item-zapekanka" class="menu-item menu-item-link" data-product-id="zapekanka"><span class="name">творожная запеканка</span><span class="price">270 ₽</span></a>
+              <h3 class="menu-category">Драники с крем-сыром</h3>
+              <a href="#item-draniki-bekon" class="menu-item menu-item-link" data-product-id="draniki-bekon"><span class="name">беконом</span><span class="price">280 ₽</span></a>
+              <a href="#item-draniki-losos" class="menu-item menu-item-link" data-product-id="draniki-losos"><span class="name">лососем</span><span class="price">360 ₽</span></a>
+              <a href="#item-draniki-cyplenok" class="menu-item menu-item-link" data-product-id="draniki-cyplenok"><span class="name">цыпленком</span><span class="price">310 ₽</span></a>
+            </div>
+          </div>
+          <div class="menu-panel" id="fresh">
+            <div class="menu-list">
+              <h3 class="menu-category">Фреши</h3>
+              <a href="#item-fresh-apelsin" class="menu-item menu-item-link" data-product-id="fresh-apelsin"><span class="name">Апельсиновый</span><span class="price">330 ₽</span></a>
+              <a href="#item-fresh-yabloko" class="menu-item menu-item-link" data-product-id="fresh-yabloko"><span class="name">Яблочный</span><span class="price">330 ₽</span></a>
+              <a href="#item-fresh-greypfrut" class="menu-item menu-item-link" data-product-id="fresh-greypfrut"><span class="name">Грейпфрут</span><span class="price">330 ₽</span></a>
+              <h3 class="menu-category">Лимонады</h3>
+              <a href="#item-limonad-klass" class="menu-item menu-item-link" data-product-id="limonad-klass"><span class="name">Классический</span><span class="price">230 ₽</span></a>
+              <a href="#item-limonad-aperol" class="menu-item menu-item-link" data-product-id="limonad-aperol"><span class="name">Трезвый апероль</span><span class="price">230 ₽</span></a>
+              <a href="#item-limonad-shhavel" class="menu-item menu-item-link" data-product-id="limonad-shhavel"><span class="name">Щавелевый</span><span class="price">230 ₽</span></a>
+              <a href="#item-limonad-kivi" class="menu-item menu-item-link" data-product-id="limonad-kivi"><span class="name">Киви Базилик</span><span class="price">230 ₽</span></a>
+            </div>
+          </div>
+          <div class="menu-panel" id="coffee">
+            <div class="menu-list">
+              <h3 class="menu-category">Кофе</h3>
+              <a href="#item-espresso" class="menu-item menu-item-link" data-product-id="espresso"><span class="name">Эспрессо</span><span class="price">150 ₽</span></a>
+              <a href="#item-americano" class="menu-item menu-item-link" data-product-id="americano"><span class="name">Американо</span><span class="price">160 ₽</span></a>
+              <a href="#item-lungo" class="menu-item menu-item-link" data-product-id="lungo"><span class="name">Лунго</span><span class="price">170 ₽</span></a>
+              <a href="#item-filter" class="menu-item menu-item-link" data-product-id="filter"><span class="name">Фильтр кофе</span><span class="price">160 / 180 ₽</span></a>
+              <a href="#item-cappuccino" class="menu-item menu-item-link" data-product-id="cappuccino"><span class="name">Капучино</span><span class="price">200 / 220 / 240 ₽</span></a>
+              <a href="#item-flat-white" class="menu-item menu-item-link" data-product-id="flat-white"><span class="name">Флэт Вайт</span><span class="price">200 / 220 ₽</span></a>
+              <a href="#item-latte" class="menu-item menu-item-link" data-product-id="latte"><span class="name">Латте</span><span class="price">200 / 220 ₽</span></a>
+              <a href="#item-raf" class="menu-item menu-item-link" data-product-id="raf"><span class="name">Раф</span><span class="price">240 / 260 ₽</span></a>
+              <a href="#item-mocha" class="menu-item menu-item-link" data-product-id="mocha"><span class="name">Мокко</span><span class="price">250 / 290 ₽</span></a>
+              <h3 class="menu-category">Авторский кофе</h3>
+              <a href="#item-raf-author" class="menu-item menu-item-link" data-product-id="raf-author"><span class="name">Раф (персиковый, сырный, халва ваниль)</span><span class="price">330 ₽</span></a>
+              <a href="#item-tapioka" class="menu-item menu-item-link" data-product-id="tapioka"><span class="name">Кофе Тапиока</span><span class="price">310 ₽</span></a>
+              <a href="#item-urbech" class="menu-item menu-item-link" data-product-id="urbech"><span class="name">Кофе с Урбечом</span><span class="price">290 ₽</span></a>
+              <h3 class="menu-category">Холодный кофе</h3>
+              <a href="#item-bumble" class="menu-item menu-item-link" data-product-id="bumble"><span class="name">Бамбл Кофе</span><span class="price">300 ₽</span></a>
+              <a href="#item-ice-latte" class="menu-item menu-item-link" data-product-id="ice-latte"><span class="name">Айс Латте</span><span class="price">230 / 250 ₽</span></a>
+              <a href="#item-ice-matcha" class="menu-item menu-item-link" data-product-id="ice-matcha"><span class="name">Айс Матча</span><span class="price">330 ₽</span></a>
+              <a href="#item-thai" class="menu-item menu-item-link" data-product-id="thai"><span class="name">Кофе по Тайски</span><span class="price">280 ₽</span></a>
+              <a href="#item-espresso-tonic" class="menu-item menu-item-link" data-product-id="espresso-tonic"><span class="name">Эспрессо Тоник</span><span class="price">240 ₽</span></a>
+            </div>
+          </div>
+          <div class="menu-panel" id="tea">
+            <div class="menu-list">
+              <h3 class="menu-category">Не кофе <small>0.35 / 0.45 л</small></h3>
+              <a href="#item-cocoa" class="menu-item menu-item-link" data-product-id="cocoa"><span class="name">Какао с маршмеллоу</span><span class="price">270 / 300 ₽</span></a>
+              <a href="#item-hot-chocolate" class="menu-item menu-item-link" data-product-id="hot-chocolate"><span class="name">Горячий шоколад</span><span class="price">210 / 240 ₽</span></a>
+              <a href="#item-matcha-latte" class="menu-item menu-item-link" data-product-id="matcha-latte"><span class="name">Матча Латте</span><span class="price">360 ₽</span></a>
+              <a href="#item-glintvein" class="menu-item menu-item-link" data-product-id="glintvein"><span class="name">Глинтвейн б/а</span><span class="price">360 ₽</span></a>
+              <h3 class="menu-category">Авторский чай</h3>
+              <a href="#item-tea-kokos" class="menu-item menu-item-link" data-product-id="tea-kokos"><span class="name">Кокос Маракуйя Манго</span><span class="price">180 / 210 ₽</span></a>
+              <a href="#item-tea-brusnika" class="menu-item menu-item-link" data-product-id="tea-brusnika"><span class="name">Брусничный Вечер</span><span class="price">180 / 210 ₽</span></a>
+              <a href="#item-tea-oblepiha" class="menu-item menu-item-link" data-product-id="tea-oblepiha"><span class="name">Облепиховый</span><span class="price">200 / 230 ₽</span></a>
+              <h3 class="menu-category">Чайное меню <small>0.3 / 1 л</small></h3>
+              <a href="#item-tea-dian" class="menu-item menu-item-link" data-product-id="tea-dian"><span class="name">Дянь хун</span><span class="price">150 / 190 ₽</span></a>
+              <a href="#item-tea-sencha" class="menu-item menu-item-link" data-product-id="tea-sencha"><span class="name">Сенча</span><span class="price">150 / 190 ₽</span></a>
+              <a href="#item-tea-puer" class="menu-item menu-item-link" data-product-id="tea-puer"><span class="name">Пуэр Лесные Ягоды</span><span class="price">150 / 190 ₽</span></a>
+              <a href="#item-tea-tatar" class="menu-item menu-item-link" data-product-id="tea-tatar"><span class="name">Татарские травы</span><span class="price">150 / 190 ₽</span></a>
+              <a href="#item-tea-ulun" class="menu-item menu-item-link" data-product-id="tea-ulun"><span class="name">Молочный улун</span><span class="price">150 / 190 ₽</span></a>
+              <a href="#item-tea-earl" class="menu-item menu-item-link" data-product-id="tea-earl"><span class="name">Эрл Грей Спешл</span><span class="price">150 / 190 ₽</span></a>
+              <a href="#item-tea-teplyi" class="menu-item menu-item-link" data-product-id="tea-teplyi"><span class="name">Теплый вечер</span><span class="price">150 / 190 ₽</span></a>
+              <h3 class="menu-category">Молочные коктейли <small>0.3 л</small></h3>
+              <a href="#item-milk-klass" class="menu-item menu-item-link" data-product-id="milk-klass"><span class="name">Классический</span><span class="price">260 ₽</span></a>
+              <a href="#item-milk-banan" class="menu-item menu-item-link" data-product-id="milk-banan"><span class="name">Банановый</span><span class="price">260 ₽</span></a>
+              <a href="#item-milk-shoko" class="menu-item menu-item-link" data-product-id="milk-shoko"><span class="name">Шоколадный</span><span class="price">260 ₽</span></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="product-detail" class="section product-detail" aria-hidden="true">
+      <div class="container">
+        <a href="#menu" class="product-detail-back">← Назад к меню</a>
+        <article class="product-detail-card">
+          <div class="product-detail-image-wrap">
+            <img src="" alt="" class="product-detail-image" id="product-detail-img">
+            <div class="product-detail-image-placeholder" id="product-detail-placeholder">Фото</div>
+          </div>
+          <div class="product-detail-content">
+            <h2 class="product-detail-title" id="product-detail-title"></h2>
+            <p class="product-detail-price" id="product-detail-price"></p>
+            <div class="product-detail-description" id="product-detail-description"></div>
+            <div class="product-detail-composition">
+              <strong>Состав:</strong> <span id="product-detail-composition"></span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="location" class="section location">
+      <div class="container">
+        <h2 class="section-title">Мы на карте</h2>
+        <p class="location-subtitle">Кофейня «На восходе»</p>
+        <div class="location-info location-info--block">
+          <p class="location-address">ул. Московская, 55</p>
+          <p class="location-city">г. Строитель</p>
+          <div class="hours">
+            <h4>Часы работы</h4>
+            <p>Пн – Пт: 7:00 – 22:00</p>
+            <p>Сб – Вс: 8:00 – 23:00</p>
+          </div>
+        </div>
+        <div class="location-map-wrap">
+          <iframe
+            src="https://yandex.ru/map-widget/v1/?um=constructor%3A06874985b3d343ff2ba81f6a08b489390bfb9c6d62a3b51e494ce94ca0954bb4&amp;source=constructor"
+            width="100%"
+            height="400"
+            frameborder="0"
+            allowfullscreen="true"
+            class="location-iframe"
+            title="На Восходе — ул. Московская, 55, Строитель">
+          </iframe>
+        </div>
+        <div class="location-map-link-wrap">
+          <a href="https://yandex.com/maps/-/CPBa6OzW" target="_blank" rel="noopener" class="btn btn-map">Открыть в Яндекс Картах</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact" class="section contact">
+      <div class="container">
+        <h2 class="section-title section-title--light">Связаться с нами</h2>
+        <div class="contact-links">
+          <a href="tel:+79202023700" class="contact-link">+7 920 202-37-00</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>© На Восходе. Сделано с любовью к кофе.</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
