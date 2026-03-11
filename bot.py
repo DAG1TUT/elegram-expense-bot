@@ -177,6 +177,11 @@ def parse_expense_message(text: str) -> Tuple[Optional[float], Optional[str]]:
     desc_lower = (description + " " + text).lower()
     if amount in small_amounts and any(kw in desc_lower for kw in thousands_keywords):
         amount = amount * 1000
+    # Голос часто распознаёт «полторы тыщи» как «2» без слова «тыщи» — если сумма 2 и описание типичная трата, считаем 1500
+    elif amount == 2 and "тысяч" not in desc_lower and "тыщ" not in desc_lower:
+        likely_1500 = ("волейбол", "спорт", "бассейн", "фитнес", "зал", "кафе", "кофе", "обед", "ужин", "завтрак", "кино", "концерт", "кальян", "ресторан", "доставка", "продукт", "еда", "магазин")
+        if any(kw in desc_lower for kw in likely_1500):
+            amount = 1500
 
     return amount, description
 
