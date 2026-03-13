@@ -34,8 +34,8 @@ SHOPS = [
 ]
 
 
-async def seed() -> None:
-    await init_db()
+async def run_seed() -> None:
+    """Добавить продавцов, точки и админа, если их ещё нет. Можно вызывать при старте бота."""
     async with async_session_factory() as session:
         # Продавцы
         r = await session.execute(select(Seller))
@@ -69,6 +69,12 @@ async def seed() -> None:
 
         await session.commit()
     print("Seed завершён.")
+
+
+async def seed() -> None:
+    """Полный seed: создание таблиц + данные."""
+    await init_db()
+    await run_seed()
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ from aiogram.enums import ParseMode
 from config import BOT_TOKEN
 from core.database import init_db
 from bot.main import dp
+from scripts.seed import run_seed
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ async def main() -> None:
         return
     await init_db()
     logger.info("Database initialized.")
+    await run_seed()
     bot = Bot(
         token=BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
