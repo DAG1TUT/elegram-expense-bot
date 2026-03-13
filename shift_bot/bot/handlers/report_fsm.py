@@ -22,8 +22,11 @@ logger = logging.getLogger(__name__)
 
 
 def _parse_float(text: str) -> float | None:
+    """Парсит число: допускает пробелы (25 000), запятую как дробный разделитель."""
     try:
-        s = text.replace(",", ".").strip()
+        s = (text or "").replace(" ", "").replace("\u00a0", "").replace(",", ".").strip()
+        if not s:
+            return None
         return float(s)
     except ValueError:
         return None
