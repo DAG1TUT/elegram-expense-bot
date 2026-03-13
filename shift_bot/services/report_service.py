@@ -7,7 +7,8 @@ from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models.shift import Shift
-from repositories import daily_report_status_repo, shift_repo
+from core.models.shop import Shop
+from repositories import daily_report_status_repo, shift_repo, shop_repo
 
 
 def _format_shift_report(shift: Shift) -> str:
@@ -66,6 +67,20 @@ def build_daily_report_text(shifts: list[Shift], report_date: date) -> str:
     return "\n".join(lines)
 
 
+def _build_points_status_block(shops: list[Shop], closed_shifts: list[Shift]) -> str:
+    """Список всех точек: закрыта смена или нет."""
+    closed_by_shop = {s.shop_id: s for s in closed_shifts}
+    lines = ["📍 Точки за день:\n"]
+    for shop in shops:
+        shift = closed_by_shop.get(shop.id)
+        if shift:
+            seller_name = shift.seller.full_name if shift.seller else "—"
+            lines.append(f"✅ {shop.address} — закрыта ({seller_name})")
+        else:
+            lines.append(f"❌ {shop.address} — не закрыта")
+    return "\n".join(lines)
+
+
 async def get_daily_report_text(
     session: AsyncSession,
     report_date: date,
@@ -73,11 +88,13 @@ async def get_daily_report_text(
 ) -> str:
     """
     Получить текст отчёта за дату.
-    intermediate=True — промежуточный (все закрытые на момент запроса);
-    intermediate=False — то же самое, но используется для итогового сообщения.
+    В начале — список всех точек (закрыта/не закрыта), затем детали по закрытым и итоги.
     """
+    shops = await shop_repo.get_all_active_shops(session)
     shifts = await shift_repo.get_closed_shifts_by_date(session, report_date)
-    return build_daily_report_text(shifts, report_date)
+    points_block = _build_points_status_block(shops, shifts)
+    body = build_daily_report_text(shifts, report_date)
+    return points_block + "\n\n" + body
 
 
 async def was_final_report_sent(session: AsyncSession, report_date: date) -> bool:
