@@ -38,3 +38,6 @@ ADMIN_IDS: set[int] = (
     if ADMIN_IDS_STR
     else set()
 )
+
+# Один пароль для входа по кнопке «Администратор». Берётся из .env или этот по умолчанию.
+ADMIN_PASSWORD: str = (os.getenv("ADMIN_PASSWORD") or "admin").strip()

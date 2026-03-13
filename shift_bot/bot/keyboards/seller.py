@@ -19,13 +19,14 @@ def kb_seller_main() -> ReplyKeyboardMarkup:
     )
 
 
-def kb_choose_seller(sellers: list[Seller]) -> InlineKeyboardMarkup:
-    """Выбор продавца для привязки telegram_id."""
+def kb_choose_seller(sellers: list[Seller], add_admin_button: bool = True) -> InlineKeyboardMarkup:
+    """Выбор продавца для привязки + кнопка «Администратор» (по паролю)."""
     rows = []
     for s in sellers:
-        # Не показываем уже привязанных (опционально: можно показывать всех)
         if s.telegram_id is None:
             rows.append([InlineKeyboardButton(text=s.full_name, callback_data=f"bind_seller_{s.id}")])
+    if add_admin_button:
+        rows.append([InlineKeyboardButton(text="👑 Администратор", callback_data="admin_login_start")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 

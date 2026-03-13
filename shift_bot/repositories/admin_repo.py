@@ -21,3 +21,15 @@ async def get_all_admin_telegram_ids(session: AsyncSession) -> list[int]:
     """Список telegram_id всех админов (для рассылки)."""
     result = await session.execute(select(Admin.telegram_id))
     return list(result.scalars().all())
+
+
+async def ensure_admin(session: AsyncSession, telegram_id: int, full_name: str = "") -> Admin:
+    """Добавить админа по telegram_id, если его ещё нет. Возвращает запись."""
+    existing = await get_admin_by_telegram_id(session, telegram_id)
+    if existing:
+        return existing
+    admin = Admin(telegram_id=telegram_id, full_name=full_name or "Руководитель")
+    session.add(admin)
+    await session.flush()
+    await session.refresh(admin)
+    return admin
