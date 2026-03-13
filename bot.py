@@ -631,10 +631,14 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Речь не распознана. Скажи чётко, например: «пятьсот рублей на кофе»."
         )
         return
+
+    # Показываем, что именно распозналось из голоса, чтобы проще было отладить числа
+    debug = f"Распознано голосом: «{text}»"
+
     amount, description = parse_expense_message(text)
     if amount is None:
         await update.message.reply_text(
-            f"Распознано: «{text}». Не удалось извлечь сумму и описание. Напиши текстом, например: кофе 500"
+            f"{debug}\nНе удалось извлечь сумму и описание. Напиши текстом, например: кофе 500"
         )
         return
     user_id = update.effective_user.id
@@ -642,7 +646,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     created_at = db.add_expense(user_id, amount, description, category, datetime.now().isoformat())
     append_expense_to_sheet(user_id, amount, description, category, created_at)
     await update.message.reply_text(
-        f"Записал по голосу: {amount:,.0f} ₽ — {description}\nКатегория: {category}"
+        f"{debug}\nЗаписал по голосу: {amount:,.0f} ₽ — {description}\nКатегория: {category}"
     )
 
 
