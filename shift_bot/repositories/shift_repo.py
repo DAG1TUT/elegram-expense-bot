@@ -79,6 +79,28 @@ async def get_closed_shifts_by_date(
     return list(result.scalars().all())
 
 
+async def get_closed_shift_by_seller_and_date(
+    session: AsyncSession, seller_id: int, shift_date: date
+) -> Shift | None:
+    """Закрытая смена продавца за указанную дату (для редактирования отчёта)."""
+    result = await session.execute(
+        select(Shift)
+        .options(
+            selectinload(Shift.seller),
+            selectinload(Shift.shop),
+            selectinload(Shift.report),
+        )
+        .where(
+            Shift.seller_id == seller_id,
+            Shift.shift_date == shift_date,
+            Shift.status == "closed",
+        )
+        .order_by(Shift.close_time.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
 async def create_shift(
     session: AsyncSession,
     seller_id: int,

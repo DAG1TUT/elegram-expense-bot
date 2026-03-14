@@ -8,12 +8,13 @@ from core.models.shop import Shop
 
 
 def kb_seller_main() -> ReplyKeyboardMarkup:
-    """Главное меню продавца: Открыть смену, Моя смена, Закрыть смену."""
+    """Главное меню продавца: Открыть смену, Моя смена, Закрыть смену, Редактировать отчёт."""
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📂 Открыть смену")],
             [KeyboardButton(text="📋 Моя смена")],
             [KeyboardButton(text="✅ Закрыть смену")],
+            [KeyboardButton(text="✏️ Редактировать отчёт")],
         ],
         resize_keyboard=True,
     )
@@ -69,4 +70,23 @@ def kb_after_shift_opened(shift_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="📋 Моя смена", callback_data=f"my_shift_{shift_id}"),
             InlineKeyboardButton(text="✅ Закрыть смену", callback_data=f"close_shift_{shift_id}"),
         ],
+    ])
+
+
+def kb_edit_report_after_submit() -> InlineKeyboardMarkup:
+    """Выбор поля при редактировании уже отправленного отчёта + Готово."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💰 Выручка", callback_data="edit_report_field_revenue")],
+        [InlineKeyboardButton(text="💵 Остаток наличных", callback_data="edit_report_field_cash")],
+        [InlineKeyboardButton(text="📦 Остаток товара", callback_data="edit_report_field_stock")],
+        [InlineKeyboardButton(text="📉 Расходы", callback_data="edit_report_field_expenses")],
+        [InlineKeyboardButton(text="💬 Комментарий", callback_data="edit_report_field_comment")],
+        [InlineKeyboardButton(text="✅ Готово", callback_data="edit_report_done")],
+    ])
+
+
+def kb_edit_report_offer(shift_id: int) -> InlineKeyboardMarkup:
+    """Кнопка «Редактировать отчёт» после закрытия смены (до 24:00)."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✏️ Редактировать отчёт", callback_data=f"edit_report_offer_{shift_id}")]
     ])

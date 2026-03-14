@@ -1,10 +1,15 @@
 """
 Модель отчёта по смене (гибкая структура для расширения полей).
 """
+from typing import TYPE_CHECKING, List
+
 from sqlalchemy import Float, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from core.models.shift_report_edit import ShiftReportEdit
 
 
 class ShiftReport(Base, TimestampMixin):
@@ -19,6 +24,10 @@ class ShiftReport(Base, TimestampMixin):
     comment: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
     shift: Mapped["Shift"] = relationship("Shift", back_populates="report")
+    edits: Mapped[List["ShiftReportEdit"]] = relationship(
+        "ShiftReportEdit",
+        back_populates="shift_report",
+    )
 
     def __repr__(self) -> str:
         return f"ShiftReport(shift_id={self.shift_id}, revenue={self.revenue})"

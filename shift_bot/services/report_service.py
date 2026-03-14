@@ -2,13 +2,77 @@
 Сервис отчётов: сборка текста итогового/промежуточного отчёта за день.
 Архитектура готова к добавлению экспорта в Excel (отдельный модуль).
 """
-from datetime import date
+from __future__ import annotations
+
+import json
+from datetime import date, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models.shift import Shift
+from core.models.shift_report_edit import ShiftReportEdit
 from core.models.shop import Shop
-from repositories import daily_report_status_repo, shift_repo, shop_repo
+from repositories import daily_report_status_repo, shift_repo, shift_report_edit_repo, shop_repo
+
+_FIELD_LABELS = {
+    "revenue": "Выручка",
+    "cash_balance": "Остаток наличных",
+    "stock_balance": "Остаток товара",
+    "expenses": "Расходы",
+    "comment": "Комментарий",
+}
+
+
+def _format_one_edit(edit: ShiftReportEdit) -> str:
+    """Одна строка истории: когда, кто, что изменил."""
+    try:
+        changes = json.loads(edit.changes)
+    except Exception:
+        changes = {}
+    dt = edit.edited_at
+    if isinstance(dt, datetime) and dt.tzinfo:
+        dt = dt.replace(tzinfo=None)
+    time_str = dt.strftime("%d.%m.%Y %H:%M") if isinstance(dt, datetime) else str(dt)
+    who = edit.edited_by_name or f"id{edit.edited_by_telegram_id}"
+    parts = [f"  {time_str} — {who}:"]
+    for field, pair in changes.items():
+        label = _FIELD_LABELS.get(field, field)
+        old_v = pair.get("old", "")
+        new_v = pair.get("new", "")
+        if field == "comment":
+            parts.append(f"    {label}: «{old_v}» → «{new_v}»")
+        else:
+            try:
+                old_v = f"{float(old_v):,.2f}"
+                new_v = f"{float(new_v):,.2f}"
+            except (TypeError, ValueError):
+                pass
+            parts.append(f"    {label}: {old_v} → {new_v}")
+    return "\n".join(parts)
+
+
+def format_report_for_edit(report) -> str:
+    """Текст текущих данных отчёта для экрана редактирования."""
+    return (
+        "Текущие данные отчёта:\n"
+        f"💰 Выручка: {report.revenue:,.2f}\n"
+        f"💵 Остаток наличных: {report.cash_balance:,.2f}\n"
+        f"📦 Остаток товара: {report.stock_balance:,.2f}\n"
+        f"📉 Расходы: {report.expenses:,.2f}\n"
+        f"💬 Комментарий: {report.comment or '—'}\n\n"
+        "Что изменить?"
+    )
+
+
+async def get_edit_history_text(session: AsyncSession, shift_report_id: int) -> str:
+    """Текст блока «История изменений» по отчёту (пустая строка, если правок не было)."""
+    edits = await shift_report_edit_repo.get_edits_by_report_id(session, shift_report_id)
+    if not edits:
+        return ""
+    lines = ["📝 История изменений:"]
+    for edit in edits:
+        lines.append(_format_one_edit(edit))
+    return "\n".join(lines)
 
 
 def _format_shift_report(shift: Shift) -> str:
@@ -88,12 +152,36 @@ async def get_daily_report_text(
 ) -> str:
     """
     Получить текст отчёта за дату.
-    В начале — список всех точек (закрыта/не закрыта), затем детали по закрытым и итоги.
+    В начале — список всех точек (закрыта/не закрыта), затем детали по закрытым,
+    для каждого отчёта — история редактирований (кто, когда, что изменил), затем итоги.
     """
     shops = await shop_repo.get_all_active_shops(session)
     shifts = await shift_repo.get_closed_shifts_by_date(session, report_date)
     points_block = _build_points_status_block(shops, shifts)
-    body = build_daily_report_text(shifts, report_date)
+    if not shifts:
+        body = f"📅 Отчёт за {report_date.strftime('%d.%m.%Y')}\n\nНет данных по закрытым сменам."
+    else:
+        total_revenue = total_cash = total_stock = total_expenses = 0.0
+        lines = [f"📅 Итоговый отчёт за {report_date.strftime('%d.%m.%Y')}\n"]
+        for shift in shifts:
+            lines.append(_format_shift_report(shift))
+            if shift.report:
+                r = shift.report
+                total_revenue += r.revenue
+                total_cash += r.cash_balance
+                total_stock += r.stock_balance
+                total_expenses += r.expenses
+                history = await get_edit_history_text(session, r.id)
+                if history:
+                    lines.append(history)
+        lines.append(
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"💰 ИТОГО выручка: {total_revenue:,.2f}\n"
+            f"💵 ИТОГО остаток наличных: {total_cash:,.2f}\n"
+            f"📦 ИТОГО остаток товара: {total_stock:,.2f}\n"
+            f"📉 ИТОГО расходы/списания: {total_expenses:,.2f}"
+        )
+        body = "\n".join(lines)
     return points_block + "\n\n" + body
 
 

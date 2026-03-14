@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models.shift import Shift
 from core.models.shop import Shop
-from repositories import shift_repo, shift_report_repo, shop_repo
+from repositories import shift_repo, shift_report_repo, shift_report_edit_repo, shop_repo
 
 
 class ShiftError(Exception):
@@ -101,6 +101,71 @@ async def get_active_shifts(session: AsyncSession, for_date: date | None = None)
 async def get_closed_shifts_for_date(session: AsyncSession, report_date: date) -> list[Shift]:
     """Закрытые смены за дату с отчётами."""
     return await shift_repo.get_closed_shifts_by_date(session, report_date)
+
+
+def can_edit_report(shift: Shift) -> bool:
+    """Редактирование отчёта разрешено только в тот же день (до 24:00)."""
+    return date.today() == shift.shift_date
+
+
+async def get_seller_closed_shift_today(
+    session: AsyncSession, seller_id: int
+) -> Shift | None:
+    """Закрытая смена продавца за сегодня (для кнопки «Редактировать отчёт»)."""
+    return await shift_repo.get_closed_shift_by_seller_and_date(
+        session, seller_id, date.today()
+    )
+
+
+async def update_shift_report_with_log(
+    session: AsyncSession,
+    report_id: int,
+    seller_id: int,
+    telegram_id: int,
+    full_name: str,
+    *,
+    revenue: float | None = None,
+    cash_balance: float | None = None,
+    stock_balance: float | None = None,
+    expenses: float | None = None,
+    comment: str | None = None,
+) -> bool:
+    """
+    Обновить отчёт и записать правку в историю.
+    Передавать только меняющиеся поля. Проверки (смена своя, дата) — в вызывающем коде.
+    """
+    report = await shift_report_repo.get_report_by_id(session, report_id)
+    if not report:
+        return False
+    changes = {}
+    if revenue is not None and report.revenue != revenue:
+        changes["revenue"] = {"old": report.revenue, "new": revenue}
+    if cash_balance is not None and report.cash_balance != cash_balance:
+        changes["cash_balance"] = {"old": report.cash_balance, "new": cash_balance}
+    if stock_balance is not None and report.stock_balance != stock_balance:
+        changes["stock_balance"] = {"old": report.stock_balance, "new": stock_balance}
+    if expenses is not None and report.expenses != expenses:
+        changes["expenses"] = {"old": report.expenses, "new": expenses}
+    if comment is not None and report.comment != comment:
+        changes["comment"] = {"old": report.comment, "new": comment}
+    await shift_report_repo.update_report(
+        session,
+        report_id,
+        revenue=revenue,
+        cash_balance=cash_balance,
+        stock_balance=stock_balance,
+        expenses=expenses,
+        comment=comment,
+    )
+    if changes:
+        await shift_report_edit_repo.add_edit(
+            session,
+            shift_report_id=report_id,
+            edited_by_telegram_id=telegram_id,
+            edited_by_name=full_name or "",
+            changes=changes,
+        )
+    return True
 
 
 async def get_shops_for_select(session: AsyncSession) -> list[Shop]:

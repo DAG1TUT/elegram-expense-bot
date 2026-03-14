@@ -11,11 +11,16 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
 from bot.keyboards.common import kb_cancel, kb_cancel_back
-from bot.keyboards.seller import kb_confirm_close_shift, kb_edit_report_field
-from bot.states.report import ReportFSM
+from bot.keyboards.seller import (
+    kb_confirm_close_shift,
+    kb_edit_report_field,
+    kb_edit_report_after_submit,
+    kb_edit_report_offer,
+)
+from bot.states.report import ReportFSM, EditReportFSM
 from bot.store import OPEN_SHIFT_BY_TELEGRAM
 from services import shift_service, report_service
-from repositories import admin_repo, shift_repo, shop_repo
+from repositories import admin_repo, shift_repo, shift_report_repo, shop_repo
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -221,6 +226,11 @@ async def report_confirm(callback: CallbackQuery, state: FSMContext, session, se
     OPEN_SHIFT_BY_TELEGRAM.pop(callback.from_user.id, None)
     await callback.answer("Смена закрыта", show_alert=True)
     await callback.message.edit_text("✅ Смена успешно закрыта. Отчёт сохранён.")
+    # Кнопка «Редактировать отчёт» только в тот же день (до 24:00)
+    await callback.message.answer(
+        "До конца дня можно изменить данные отчёта:",
+        reply_markup=kb_edit_report_offer(shift_id),
+    )
 
     # Проверка: все ли точки за день закрыты — отправить итоговый отчёт админам один раз
     today = date.today()
@@ -258,9 +268,144 @@ async def report_edit_cancel(callback: CallbackQuery, state: FSMContext, **kwarg
     await callback.message.edit_text(_format_summary(data), reply_markup=kb_confirm_close_shift())
 
 
+@router.callback_query(EditReportFSM.waiting_value, F.data == "report_cancel")
+async def edit_report_value_cancel(callback: CallbackQuery, state: FSMContext, session, **kwargs):
+    """Отмена ввода значения — вернуться к выбору поля."""
+    await state.update_data(edit_field=None)
+    await state.set_state(EditReportFSM.choosing_field)
+    data = await state.get_data()
+    report_id = data.get("edit_report_id")
+    if report_id:
+        report = await shift_report_repo.get_report_by_id(session, report_id)
+        if report:
+            text = report_service.format_report_for_edit(report)
+            history = await report_service.get_edit_history_text(session, report_id)
+            if history:
+                text += "\n\n" + history
+            await callback.message.edit_text(text, reply_markup=kb_edit_report_after_submit())
+    await callback.answer("Отменено")
+
+
 @router.callback_query(F.data == "report_cancel")
 async def report_cancel(callback: CallbackQuery, state: FSMContext, **kwargs):
     """Отмена ввода отчёта."""
     await state.clear()
     await callback.answer("Отменено")
     await callback.message.edit_text("Ввод отчёта отменён. Смена остаётся открытой.")
+
+
+# ----- Редактирование отчёта после отправки (до 24:00 того же дня) -----
+
+_EDIT_AFTER_PROMPTS = {
+    "revenue": "Введите новое значение выручки (число):",
+    "cash_balance": "Введите новый остаток наличных (число):",
+    "stock_balance": "Введите новый остаток товара (число):",
+    "expenses": "Введите новые расходы (число):",
+    "comment": "Введите новый комментарий (или «—»):",
+}
+
+_EDIT_FIELD_MAP = {
+    "revenue": "revenue",
+    "cash": "cash_balance",
+    "stock": "stock_balance",
+    "expenses": "expenses",
+    "comment": "comment",
+}
+
+
+@router.callback_query(F.data.startswith("edit_report_offer_"))
+async def edit_report_offer(callback: CallbackQuery, state: FSMContext, session, seller, role, **kwargs):
+    """Открыть экран редактирования отчёта (проверка: свой отчёт, тот же день)."""
+    if role != "seller" or not seller:
+        await callback.answer("Ошибка: привяжите аккаунт через /start.", show_alert=True)
+        return
+    try:
+        shift_id = int(callback.data.replace("edit_report_offer_", ""))
+    except ValueError:
+        await callback.answer()
+        return
+    shift = await shift_repo.get_shift_by_id(session, shift_id)
+    if not shift or shift.seller_id != seller.id or not shift.report:
+        await callback.answer("Отчёт не найден.", show_alert=True)
+        return
+    if not shift_service.can_edit_report(shift):
+        await callback.answer(
+            "Редактирование недоступно: после 24:00 дня смены менять отчёт нельзя.",
+            show_alert=True,
+        )
+        return
+    await state.set_state(EditReportFSM.choosing_field)
+    await state.update_data(edit_report_id=shift.report.id, edit_shift_id=shift_id)
+    text = report_service.format_report_for_edit(shift.report)
+    history = await report_service.get_edit_history_text(session, shift.report.id)
+    if history:
+        text += "\n\n" + history
+    await callback.answer()
+    await callback.message.edit_text(text, reply_markup=kb_edit_report_after_submit())
+
+
+@router.callback_query(EditReportFSM.choosing_field, F.data.startswith("edit_report_field_"))
+async def edit_report_choose_field(callback: CallbackQuery, state: FSMContext, **kwargs):
+    """Выбрано поле для изменения — запрашиваем новое значение."""
+    name = callback.data.replace("edit_report_field_", "")
+    edit_field = _EDIT_FIELD_MAP.get(name)
+    if not edit_field:
+        await callback.answer()
+        return
+    await state.update_data(edit_field=edit_field)
+    await state.set_state(EditReportFSM.waiting_value)
+    await callback.answer()
+    await callback.message.edit_text(
+        _EDIT_AFTER_PROMPTS[edit_field],
+        reply_markup=kb_cancel(),
+    )
+
+
+@router.callback_query(EditReportFSM.choosing_field, F.data == "edit_report_done")
+async def edit_report_done(callback: CallbackQuery, state: FSMContext, **kwargs):
+    """Завершить редактирование отчёта."""
+    await state.clear()
+    await callback.answer("Готово")
+    await callback.message.edit_text("✅ Редактирование отчёта завершено.")
+
+
+@router.message(EditReportFSM.waiting_value, F.text)
+async def edit_report_value_entered(message: Message, state: FSMContext, session, seller, role, **kwargs):
+    """Введено новое значение при редактировании отправленного отчёта."""
+    if role != "seller" or not seller:
+        await state.clear()
+        return
+    data = await state.get_data()
+    report_id = data.get("edit_report_id")
+    edit_field = data.get("edit_field")
+    if not report_id or not edit_field:
+        await state.set_state(EditReportFSM.choosing_field)
+        return
+    if edit_field == "comment":
+        value = message.text.strip() or "—"
+        kw = {edit_field: value}
+    else:
+        val = _parse_float(message.text)
+        if val is None or val < 0:
+            await message.answer(f"Введите число. {_EDIT_AFTER_PROMPTS[edit_field]}")
+            return
+        kw = {edit_field: val}
+    ok = await shift_service.update_shift_report_with_log(
+        session,
+        report_id=report_id,
+        seller_id=seller.id,
+        telegram_id=message.from_user.id,
+        full_name=(message.from_user.full_name or "").strip() or "Продавец",
+        **kw,
+    )
+    if not ok:
+        await message.answer("Не удалось обновить отчёт.")
+        return
+    await state.update_data(edit_field=None)
+    await state.set_state(EditReportFSM.choosing_field)
+    report = await shift_report_repo.get_report_by_id(session, report_id)
+    text = "✅ Изменено.\n\n" + report_service.format_report_for_edit(report)
+    history = await report_service.get_edit_history_text(session, report_id)
+    if history:
+        text += "\n\n" + history
+    await message.answer(text, reply_markup=kb_edit_report_after_submit())

@@ -8,13 +8,15 @@ from typing import Optional
 
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
+from aiogram.fsm.context import FSMContext
 
 from bot.keyboards import kb_seller_main, kb_choose_shop
 from bot.keyboards.common import kb_cancel
-from bot.keyboards.seller import kb_after_shift_opened
+from bot.keyboards.seller import kb_after_shift_opened, kb_edit_report_after_submit
+from bot.states.report import EditReportFSM
 from bot.store import OPEN_SHIFT_BY_TELEGRAM
 from repositories import shop_repo, shift_repo
-from services import shift_service
+from services import shift_service, report_service
 from services.shift_service import ShiftError
 
 router = Router()
@@ -27,6 +29,30 @@ def _get_cached_shift(telegram_id: int, seller_id: int) -> Optional[dict]:
     if data and data.get("seller_id") == seller_id:
         return data
     return None
+
+
+@router.message(F.text == "✏️ Редактировать отчёт")
+async def edit_report_start(message: Message, state: FSMContext, session, seller, role, **kwargs):
+    """Открыть редактирование своего отчёта за сегодня (до 24:00)."""
+    if role != "seller" or not seller:
+        await message.answer("Сначала привяжите аккаунт через /start.")
+        return
+    shift = await shift_service.get_seller_closed_shift_today(session, seller.id)
+    if not shift or not shift.report:
+        await message.answer("Нет закрытого отчёта за сегодня для редактирования.")
+        return
+    if not shift_service.can_edit_report(shift):
+        await message.answer(
+            "Редактирование недоступно: после 24:00 дня смены менять отчёт нельзя."
+        )
+        return
+    await state.set_state(EditReportFSM.choosing_field)
+    await state.update_data(edit_report_id=shift.report.id, edit_shift_id=shift.id)
+    text = report_service.format_report_for_edit(shift.report)
+    history = await report_service.get_edit_history_text(session, shift.report.id)
+    if history:
+        text += "\n\n" + history
+    await message.answer(text, reply_markup=kb_edit_report_after_submit())
 
 
 @router.message(F.text == "📂 Открыть смену")
