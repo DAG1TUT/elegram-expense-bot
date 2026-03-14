@@ -79,6 +79,55 @@ async def get_closed_shifts_by_date(
     return list(result.scalars().all())
 
 
+async def get_all_closed_shifts_with_report(session: AsyncSession) -> list[Shift]:
+    """Все закрытые смены с отчётами и связями (для рейтингов)."""
+    result = await session.execute(
+        select(Shift)
+        .options(
+            selectinload(Shift.seller),
+            selectinload(Shift.shop),
+            selectinload(Shift.report),
+        )
+        .where(Shift.status == "closed")
+        .order_by(Shift.shift_date.desc(), Shift.close_time.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def get_closed_shifts_by_seller(
+    session: AsyncSession, seller_id: int
+) -> list[Shift]:
+    """Все закрытые смены продавца с отчётами (для детализации по продавцу)."""
+    result = await session.execute(
+        select(Shift)
+        .options(
+            selectinload(Shift.seller),
+            selectinload(Shift.shop),
+            selectinload(Shift.report),
+        )
+        .where(Shift.seller_id == seller_id, Shift.status == "closed")
+        .order_by(Shift.shift_date.desc(), Shift.close_time.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def get_closed_shifts_by_shop(
+    session: AsyncSession, shop_id: int
+) -> list[Shift]:
+    """Все закрытые смены по точке с отчётами (для детализации по точке)."""
+    result = await session.execute(
+        select(Shift)
+        .options(
+            selectinload(Shift.seller),
+            selectinload(Shift.shop),
+            selectinload(Shift.report),
+        )
+        .where(Shift.shop_id == shop_id, Shift.status == "closed")
+        .order_by(Shift.shift_date.desc(), Shift.close_time.desc())
+    )
+    return list(result.scalars().all())
+
+
 async def get_closed_shift_by_seller_and_date(
     session: AsyncSession, seller_id: int, shift_date: date
 ) -> Shift | None:

@@ -7,12 +7,14 @@ import logging
 from datetime import date, datetime
 
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
 from bot.keyboards import kb_admin_main
+from bot.keyboards.admin import kb_seller_rating, kb_shop_rating
 from bot.store import LOGGED_OUT_ADMIN_IDS
 from services import shift_service, report_service, reminder_service
+from services import rating_service
 from repositories import admin_repo
 from config import ADMIN_IDS
 
@@ -77,6 +79,106 @@ async def admin_final_report(message: Message, session, role, **kwargs):
     today = date.today()
     text = await report_service.get_daily_report_text(session, today)
     await message.answer("📄 Итоговый отчёт за сегодня:\n\n" + text)
+
+
+@router.message(F.text == "📈 Рейтинг продавцов")
+async def admin_seller_rating(message: Message, session, role, **kwargs):
+    """Рейтинг продавцов по средней выручке; кнопки — провал в детали по продавцу."""
+    if not _admin_only(role):
+        return
+    rows = await rating_service.get_seller_rating(session)
+    if not rows:
+        await message.answer("Нет данных по закрытым сменам для рейтинга продавцов.")
+        return
+    lines = ["📈 Рейтинг продавцов (по средней выручке):\n"]
+    for i, r in enumerate(rows, 1):
+        name = r.seller.full_name or f"ID{r.seller.id}"
+        lines.append(
+            f"{i}. {name} — {r.avg_revenue:,.0f} ₽ (среднее), смен: {r.shifts_count}"
+        )
+    await message.answer(
+        "\n".join(lines),
+        reply_markup=kb_seller_rating(rows),
+    )
+
+
+@router.message(F.text == "📈 Рейтинг точек")
+async def admin_shop_rating(message: Message, session, role, **kwargs):
+    """Рейтинг точек по средней выручке; кнопки — провал в детали по точке."""
+    if not _admin_only(role):
+        return
+    rows = await rating_service.get_shop_rating(session)
+    if not rows:
+        await message.answer("Нет данных по закрытым сменам для рейтинга точек.")
+        return
+    lines = ["📈 Рейтинг точек (по средней выручке):\n"]
+    for i, r in enumerate(rows, 1):
+        addr = r.shop.address or f"Точка {r.shop.id}"
+        lines.append(
+            f"{i}. {addr} — {r.avg_revenue:,.0f} ₽ (среднее), смен: {r.shifts_count}"
+        )
+    await message.answer(
+        "\n".join(lines),
+        reply_markup=kb_shop_rating(rows),
+    )
+
+
+@router.callback_query(F.data.startswith("seller_rating_"))
+async def admin_seller_rating_drill(callback: CallbackQuery, session, role, **kwargs):
+    """Провал в продавца: в какой день на какой точке, сколько сдал."""
+    if not _admin_only(role):
+        await callback.answer()
+        return
+    try:
+        seller_id = int(callback.data.replace("seller_rating_", ""))
+    except ValueError:
+        await callback.answer()
+        return
+    shifts = await rating_service.get_seller_shifts_detail(session, seller_id)
+    if not shifts:
+        await callback.answer("Нет смен у этого продавца.", show_alert=True)
+        return
+    seller_name = shifts[0].seller.full_name if shifts[0].seller else f"ID{seller_id}"
+    lines = [f"👤 {seller_name}\nСмены (дата — точка — выручка):\n"]
+    total = 0.0
+    for s in shifts:
+        rev = s.report.revenue if s.report else 0
+        total += rev
+        date_str = s.shift_date.strftime("%d.%m.%Y") if s.shift_date else "—"
+        addr = s.shop.address if s.shop else f"Точка {s.shop_id}"
+        lines.append(f"  • {date_str} — {addr} — {rev:,.0f} ₽")
+    lines.append(f"\nВсего выручки за все смены: {total:,.0f} ₽")
+    await callback.answer()
+    await callback.message.answer("\n".join(lines))
+
+
+@router.callback_query(F.data.startswith("shop_rating_"))
+async def admin_shop_rating_drill(callback: CallbackQuery, session, role, **kwargs):
+    """Провал в точку: кто в какой день работал и сколько сдал."""
+    if not _admin_only(role):
+        await callback.answer()
+        return
+    try:
+        shop_id = int(callback.data.replace("shop_rating_", ""))
+    except ValueError:
+        await callback.answer()
+        return
+    shifts = await rating_service.get_shop_shifts_detail(session, shop_id)
+    if not shifts:
+        await callback.answer("Нет смен по этой точке.", show_alert=True)
+        return
+    shop_addr = shifts[0].shop.address if shifts[0].shop else f"Точка {shop_id}"
+    lines = [f"📍 {shop_addr}\nСмены (дата — кто работал — выручка):\n"]
+    total = 0.0
+    for s in shifts:
+        rev = s.report.revenue if s.report else 0
+        total += rev
+        date_str = s.shift_date.strftime("%d.%m.%Y") if s.shift_date else "—"
+        who = s.seller.full_name if s.seller else f"ID{s.seller_id}"
+        lines.append(f"  • {date_str} — {who} — {rev:,.0f} ₽")
+    lines.append(f"\nВсего выручки по точке за все смены: {total:,.0f} ₽")
+    await callback.answer()
+    await callback.message.answer("\n".join(lines))
 
 
 @router.message(F.text == "⚠️ Незакрытые точки")
