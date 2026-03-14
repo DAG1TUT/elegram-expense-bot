@@ -10,7 +10,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from bot.keyboards.common import kb_cancel, kb_cancel_back
+from bot.keyboards.common import kb_cancel, kb_cancel_back, kb_confirm_big_value
 from bot.keyboards.seller import (
     kb_confirm_close_shift,
     kb_edit_report_field,
@@ -24,6 +24,33 @@ from repositories import admin_repo, shift_repo, shift_report_repo, shop_repo
 
 router = Router()
 logger = logging.getLogger(__name__)
+
+# Пороги для переспроса «точно ли такое большое значение?» (по полям отчёта)
+BIG_VALUE_THRESHOLDS = {
+    "revenue": 200_000,
+    "cash_balance": 150_000,
+    "stock_balance": 150_000,
+    "expenses": 50_000,
+}
+# Куда переходить после поля (для основного потока)
+_NEXT_STATE_AFTER_FIELD = {
+    "revenue": ReportFSM.cash_balance,
+    "cash_balance": ReportFSM.stock_balance,
+    "stock_balance": ReportFSM.expenses,
+    "expenses": ReportFSM.comment,
+}
+_PROMPT_AFTER_FIELD = {
+    "revenue": "Введите остаток наличных (число):",
+    "cash_balance": "Введите остаток товара (число или количество):",
+    "stock_balance": "Введите расходы / списания (число):",
+    "expenses": "Введите комментарий (можно кратко или «—»):",
+}
+_FIRST_PROMPT = {
+    "revenue": "Введите выручку за день (число):",
+    "cash_balance": "Введите остаток наличных (число):",
+    "stock_balance": "Введите остаток товара (число или количество):",
+    "expenses": "Введите расходы / списания (число):",
+}
 
 
 def _parse_float(text: str) -> float | None:
@@ -50,11 +77,31 @@ def _format_summary(data: dict) -> str:
     )
 
 
+async def _ask_confirm_big_value(
+    message: Message, state: FSMContext, field: str, val: float, from_editing: bool = False
+) -> None:
+    """Переспросить при подозрительно большом значении."""
+    await state.update_data(
+        pending_field=field,
+        pending_value=val,
+        pending_from_editing=from_editing,
+    )
+    await state.set_state(ReportFSM.confirm_big_value)
+    await message.answer(
+        f"Вы ввели {val:,.0f}. Это очень большое значение.\n\n"
+        "Подтвердите: точно так и должно быть?",
+        reply_markup=kb_confirm_big_value(),
+    )
+
+
 @router.message(ReportFSM.revenue, F.text)
 async def step_revenue(message: Message, state: FSMContext, session, **kwargs):
     val = _parse_float(message.text)
     if val is None or val < 0:
         await message.answer("Введите число (выручка), например 15000.50")
+        return
+    if val >= BIG_VALUE_THRESHOLDS.get("revenue", float("inf")):
+        await _ask_confirm_big_value(message, state, "revenue", val, from_editing=False)
         return
     await state.update_data(revenue=val)
     await state.set_state(ReportFSM.cash_balance)
@@ -67,6 +114,9 @@ async def step_cash_balance(message: Message, state: FSMContext, session, **kwar
     if val is None or val < 0:
         await message.answer("Введите число (остаток наличных), например 5000")
         return
+    if val >= BIG_VALUE_THRESHOLDS.get("cash_balance", float("inf")):
+        await _ask_confirm_big_value(message, state, "cash_balance", val, from_editing=False)
+        return
     await state.update_data(cash_balance=val)
     await state.set_state(ReportFSM.stock_balance)
     await message.answer("Введите остаток товара (число или количество):", reply_markup=kb_cancel_back())
@@ -78,6 +128,9 @@ async def step_stock_balance(message: Message, state: FSMContext, session, **kwa
     if val is None or val < 0:
         await message.answer("Введите число (остаток товара)")
         return
+    if val >= BIG_VALUE_THRESHOLDS.get("stock_balance", float("inf")):
+        await _ask_confirm_big_value(message, state, "stock_balance", val, from_editing=False)
+        return
     await state.update_data(stock_balance=val)
     await state.set_state(ReportFSM.expenses)
     await message.answer("Введите расходы / списания (число):", reply_markup=kb_cancel_back())
@@ -88,6 +141,9 @@ async def step_expenses(message: Message, state: FSMContext, session, **kwargs):
     val = _parse_float(message.text)
     if val is None or val < 0:
         await message.answer("Введите число (расходы), например 200")
+        return
+    if val >= BIG_VALUE_THRESHOLDS.get("expenses", float("inf")):
+        await _ask_confirm_big_value(message, state, "expenses", val, from_editing=False)
         return
     await state.update_data(expenses=val)
     await state.set_state(ReportFSM.comment)
@@ -126,6 +182,58 @@ async def report_step_back(callback: CallbackQuery, state: FSMContext, **kwargs)
             await callback.message.answer(prompt, reply_markup=kb())
             return
     await callback.answer()
+
+
+@router.callback_query(ReportFSM.confirm_big_value, F.data == "report_confirm_big_yes")
+async def report_confirm_big_yes(callback: CallbackQuery, state: FSMContext, **kwargs):
+    """Подтвердили большое значение — сохраняем и переходим к следующему шагу или к итогу."""
+    data = await state.get_data()
+    field = data.get("pending_field")
+    value = data.get("pending_value")
+    from_editing = data.get("pending_from_editing", False)
+    updates = {
+        field: value,
+        "pending_field": None,
+        "pending_value": None,
+        "pending_from_editing": None,
+    }
+    if from_editing:
+        updates["edit_field"] = None
+    await state.update_data(**updates)
+    await callback.answer("Принято")
+    if from_editing:
+        await state.set_state(ReportFSM.confirm)
+        new_data = await state.get_data()
+        await callback.message.edit_text(
+            _format_summary(new_data),
+            reply_markup=kb_confirm_close_shift(),
+        )
+        return
+    next_state = _NEXT_STATE_AFTER_FIELD.get(field)
+    prompt = _PROMPT_AFTER_FIELD.get(field, "")
+    await state.set_state(next_state)
+    await callback.message.edit_text(prompt, reply_markup=kb_cancel_back())
+
+
+@router.callback_query(ReportFSM.confirm_big_value, F.data == "report_confirm_big_no")
+async def report_confirm_big_no(callback: CallbackQuery, state: FSMContext, **kwargs):
+    """Отказ — вводим значение заново."""
+    data = await state.get_data()
+    field = data.get("pending_field")
+    from_editing = data.get("pending_from_editing", False)
+    await state.update_data(
+        pending_field=None, pending_value=None, pending_from_editing=None,
+        edit_field=field if from_editing else None,
+    )
+    await callback.answer("Введите заново")
+    if from_editing:
+        await state.set_state(ReportFSM.editing)
+        prompt = _EDIT_PROMPTS.get(field, "")
+        await callback.message.edit_text(prompt, reply_markup=kb_cancel())
+    else:
+        await state.set_state(getattr(ReportFSM, field))
+        prompt = _FIRST_PROMPT.get(field, "")
+        await callback.message.edit_text(prompt, reply_markup=kb_cancel_back() if field != "revenue" else kb_cancel())
 
 
 @router.callback_query(ReportFSM.confirm, F.data == "report_edit")
@@ -188,6 +296,9 @@ async def report_edit_value(message: Message, state: FSMContext, **kwargs):
         val = _parse_float(message.text)
         if val is None or val < 0:
             await message.answer(f"Введите число. {_EDIT_PROMPTS[edit_field]}")
+            return
+        if val >= BIG_VALUE_THRESHOLDS.get(edit_field, float("inf")):
+            await _ask_confirm_big_value(message, state, edit_field, val, from_editing=True)
             return
         await state.update_data(**{edit_field: val}, edit_field=None)
     await state.set_state(ReportFSM.confirm)

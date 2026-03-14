@@ -14,6 +14,7 @@ class ReportFSM(StatesGroup):
     comment = State()
     confirm = State()
     editing = State()  # ввод нового значения при нажатии «Изменить»
+    confirm_big_value = State()  # переспрос при подозрительно большом числе
 
 
 class EditReportFSM(StatesGroup):
