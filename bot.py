@@ -16,7 +16,7 @@ from telegram.request import HTTPXRequest
 
 import database as db
 from categories import detect_category, get_all_categories
-from google_sheets import append_expense_to_sheet
+from google_sheets import append_expense_to_sheet, update_expense_category_in_sheet
 
 # Голосовые сообщения (опционально)
 try:
@@ -487,6 +487,13 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer("Трата не найдена")
             return
         if db.update_expense_category(user_id, expense_id, new_cat):
+            update_expense_category_in_sheet(
+                user_id,
+                exp["amount"],
+                exp["description"],
+                exp["created_at"],
+                new_cat,
+            )
             await query.answer(f"Категория изменена на {new_cat}")
             label = f"{exp['amount']:,.0f} ₽ — {exp['description']}"
             await query.edit_message_text(

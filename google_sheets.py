@@ -54,8 +54,8 @@ def _setup_format_and_chart(sh: gspread.Spreadsheet) -> None:
             summary_ws = sh.worksheet(summary_title)
         except gspread.WorksheetNotFound:
             summary_ws = sh.add_worksheet(title=summary_title, rows=50, cols=6)
-            # Формула: сумма по категориям из первого листа (E = категория, C = сумма)
-            formula = f'=QUERY(\'{data_title}\'!A:E,"select E, sum(C) where A is not null group by E label sum(C) \'Сумма\'",1)'
+            # Формула: сумма по категориям из первого листа (E = категория, C = сумма). A2:E — без строки заголовков
+            formula = f'=QUERY(\'{data_title}\'!A2:E,"select E, sum(C) where A is not null group by E label E \'Категория\', sum(C) \'Сумма\'",1)'
             summary_ws.update_acell("A1", formula)
             summary_ws.format("A1:B1", {"textFormat": {"bold": True}})
             _log("[GSHEETS] summary sheet created")
@@ -182,4 +182,41 @@ def append_expense_to_sheet(
         _log("[GSHEETS] row appended ok")
     except Exception as e:
         _log(f"[GSHEETS] append error: {e}")
+
+
+def update_expense_category_in_sheet(
+    user_id: int,
+    amount: float,
+    description: str,
+    created_at: str,
+    new_category: str,
+) -> None:
+    """Находит строку с этой тратой в таблице и обновляет только категорию (столбец E)."""
+    sheet = _get_sheet()
+    if sheet is None:
+        return
+    try:
+        rows = sheet.get_all_values()
+        # Строка 0 — заголовки, данные с 1
+        for i in range(1, len(rows)):
+            row = rows[i]
+            if len(row) < 5:
+                continue
+            # A=created_at, B=user_id, C=amount, D=description, E=category
+            try:
+                amount_match = float(row[2]) == float(amount) if row[2] else False
+            except (ValueError, TypeError):
+                amount_match = False
+            if (
+                row[0] == created_at
+                and str(row[1]) == str(user_id)
+                and amount_match
+                and row[3] == description
+            ):
+                sheet.update_cell(i + 1, 5, new_category)
+                _log("[GSHEETS] category updated in sheet")
+                return
+        _log("[GSHEETS] row not found for category update")
+    except Exception as e:
+        _log(f"[GSHEETS] update category error: {e}")
 
