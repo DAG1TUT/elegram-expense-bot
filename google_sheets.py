@@ -101,8 +101,8 @@ def _setup_format_and_chart(sh: gspread.Spreadsheet) -> None:
                                 },
                                 "position": {
                                     "overlayPosition": {
-                                        "anchorCell": {"sheetId": summary_id, "rowIndex": 0, "columnIndex": 3},
-                                        "offsetXPixels": 20,
+                                        "anchorCell": {"sheetId": summary_id, "rowIndex": 0, "columnIndex": 6},
+                                        "offsetXPixels": 40,
                                         "offsetYPixels": 20,
                                         "widthPixels": 420,
                                         "heightPixels": 320,
