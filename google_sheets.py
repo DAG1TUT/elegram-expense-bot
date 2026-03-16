@@ -201,21 +201,15 @@ def update_expense_category_in_sheet(
         return
     try:
         rows = sheet.get_all_values()
-        # Строка 0 — заголовки, данные с 1
-        for i in range(1, len(rows)):
+        # Строка 0 — заголовки, данные с 1. Ищем с конца, чтобы попадать в самую свежую запись.
+        for i in range(len(rows) - 1, 0, -1):
             row = rows[i]
             if len(row) < 5:
                 continue
             # A=created_at, B=user_id, C=amount, D=description, E=category
-            try:
-                amount_match = float(row[2]) == float(amount) if row[2] else False
-            except (ValueError, TypeError):
-                amount_match = False
             if (
                 row[0] == created_at
                 and str(row[1]) == str(user_id)
-                and amount_match
-                and row[3] == description
             ):
                 sheet.update_cell(i + 1, 5, new_category)
                 _log("[GSHEETS] category updated in sheet")
