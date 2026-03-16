@@ -142,6 +142,10 @@ def _get_sheet() -> Optional[gspread.Worksheet]:
         client = gspread.authorize(credentials)
         sh = client.open_by_key(spreadsheet_id)
         _cached_sheet = sh.sheet1
+        # Кириллическое имя "Лист1" ломает API (Unable to parse range). Переименуем в ASCII.
+        if _cached_sheet.title == "Лист1" or not all(ord(c) < 128 for c in _cached_sheet.title):
+            _cached_sheet.update_title("Data")
+            _log("[GSHEETS] first sheet renamed to Data")
         # Заголовки в первой строке, если лист пустой (дублируем для совместимости)
         try:
             first = _cached_sheet.row_values(1)
